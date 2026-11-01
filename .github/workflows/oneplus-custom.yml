@@ -93,7 +93,7 @@ on:
         description: '选择要构建的设备（A16）'
         required: false
         type: choice
-        default: '不构建 (A16)'
+        default: 'OnePlus-13-6.6.118 (A16)'
         options:
           - '不构建 (A16)'
           - "OnePlus-Ace2-5.10.236 (A16)"
@@ -184,7 +184,7 @@ on:
           - SukiSU
           - BakaSU
           - FinaSU
-        default: FinaSU
+        default: BakaSU
       build_channel:
         description: '构建通道（正式=官方 Release 发行版，最新=上游最新构建；FinaSU 最新取 build-manager 构建）'
         required: false
