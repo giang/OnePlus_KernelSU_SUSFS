@@ -13,7 +13,7 @@ PATTERNS[bakasu]=$(echo 'UkVQT19OQU1FIDo9IEJha2FTVQ==' | base64 -d | base64)
 PATTERNS[sukisu_branch]=$(echo 'QCQoY2FsbCBnaXRfYnJhbmNoKQ==' | base64 -d | base64)
 PATTERNS[finasu_branch]=$(echo 'QCQoS1NVX1ZFUlNJT05fQlJBTkNIKQ==' | base64 -d | base64)
 PATTERNS[marker]=$(echo 'QmFrYVNV' | base64 -d | base64)
-BRAND=$(echo 'TGluZ0x1bw==' | base64 -d)
+BRAND="giang@techs.review"
 
 apply_bakasu() {
   local kbuild="$KSU_DIR/kernel/Kbuild"
