@@ -1207,6 +1207,9 @@ runs:
             "GITHUB_API_BASE  :=": "GITHUB_API_BASE  := " + api + "\n",
             "KSU_GITHUB_VER   :=": "KSU_GITHUB_VER   := $(shell $(CURL_BIN) -s \"$(GITHUB_API_BASE)/releases/latest\" 2>/dev/null | grep -o '\"tag_name\":\"[^\"]*\"' | head -1 | cut -d'\"' -f4 | sed 's/^v//')\n",
             "GITHUB_COMMITS   :=": "GITHUB_COMMITS   := $(shell $(CURL_BIN) -s -D - -o /dev/null \"$(GITHUB_API_BASE)/commits?sha=$(REPO_BRANCH)&limit=1\" 2>/dev/null | tr -d '\\r' | sed -n 's/^[Xx]-[Tt]otal-[Cc]ount:[[:space:]]*\\([0-9]*\\).*/\\1/p')\n",
+            "RELEASE_API_BASE :=": "RELEASE_API_BASE := " + api + "\n",
+            "KSU_RELEASE_VER  :=": "KSU_RELEASE_VER  := $(shell $(CURL_BIN) -s \"$(RELEASE_API_BASE)/releases/latest\" 2>/dev/null | grep -o '\"tag_name\":\"[^\"]*\"' | head -1 | cut -d'\"' -f4 | sed 's/^v//')\n",
+            "RELEASE_COMMITS  :=": "RELEASE_COMMITS  := $(shell $(CURL_BIN) -s -D - -o /dev/null \"$(RELEASE_API_BASE)/commits?sha=$(REPO_BRANCH)&limit=1\" 2>/dev/null | tr -d '\\r' | sed -n 's/^[Xx]-[Tt]otal-[Cc]ount:[[:space:]]*\\([0-9]*\\).*/\\1/p')\n",
             "KSU_VERSION     :=": "KSU_VERSION     := $(if $(LOCAL_COUNT),$(shell expr $(VERSION_BASE) + $(LOCAL_COUNT) + $(VERSION_OFFSET)),13000)\n",
         }
         lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
@@ -1219,7 +1222,17 @@ runs:
                     break
             else:
                 out.append(line)
-        missing = sorted(set(want) - seen)
+        aliases = {
+            "GITHUB_API_BASE  :=": "RELEASE_API_BASE :=",
+            "KSU_GITHUB_VER   :=": "KSU_RELEASE_VER  :=",
+            "GITHUB_COMMITS   :=": "RELEASE_COMMITS  :=",
+        }
+        missing = sorted(
+            prefix for prefix in want
+            if prefix not in aliases.values()
+            and prefix not in seen
+            and aliases.get(prefix, prefix) not in seen
+        )
         if missing:
             raise SystemExit("SukiSU builtin kernel/Makefile 版本来源改写失败: " + ", ".join(missing))
         path.write_text("".join(out), encoding="utf-8")
@@ -1228,6 +1241,20 @@ runs:
         if grep -qE 'SukiSU-Nova|api\.github\.com' "$KSU_MK"; then
           echo "::error::SukiSU builtin kernel/Makefile 仍引用旧仓库，版本来源改写失败"
           exit 1
+        fi
+
+        # SUSFS 跳过了上游 latest_granting 同步，SukiSU 的 avd_init() 因而
+        # 会把备份策略的陈旧 seqno 暴露到 /sys/fs/selinux/access，触发 SEL 检测。
+        # 该值由 fake access 响应使用；固定为原生 Android 的 1，与 BakaSU 的
+        # 处理一致，不改动真实策略计算。保留二次赋值作为上游后续变动的兜底。
+        SELINUX_HIDE="$KSU_FOLDER/kernel/feature/selinux_hide.c"
+        if [ -f "$SELINUX_HIDE" ]; then
+          sed -i -E '/^[[:space:]]*avd->seqno[[:space:]]*=/s/=.*/= 1;/' "$SELINUX_HIDE"
+          if ! grep -qE '^[[:space:]]*avd->seqno = 1;' "$SELINUX_HIDE"; then
+            echo "::error::SukiSU SELinux access seqno patch failed"
+            exit 1
+          fi
+          echo "✅ SukiSU SELinux access seqno fixed at 1"
         fi
 
         # 保证内核 KSU 版本与拉取的管理器安装包严格一致
